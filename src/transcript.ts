@@ -10,6 +10,7 @@ type AssistantUsage = {
 type TranscriptEntry = {
   readonly type?: string;
   readonly promptId?: string;
+  readonly timestamp?: string;
   readonly message?: {
     readonly id?: string;
     readonly usage?: AssistantUsage;
@@ -119,4 +120,28 @@ export const sumSessionUsage = (
   return distinctAssistantEntries
     .map(usageOf)
     .reduce(accumulateUsage, EMPTY_CUMULATIVE_USAGE);
+};
+
+const isConversationalEntry = (entry: TranscriptEntry | undefined): boolean =>
+  entry?.type === "user" || entry?.type === "assistant";
+
+const timestampMsOf = (entry: TranscriptEntry): number =>
+  entry.timestamp === undefined ? NaN : Date.parse(entry.timestamp);
+
+const greaterOf = (left: number, right: number): number =>
+  left >= right ? left : right;
+
+const maxOf = (values: ReadonlyArray<number>): number | undefined =>
+  values.length === 0 ? undefined : values.reduce(greaterOf);
+
+export const lastConversationalActivityMs = (
+  transcriptPath: string | undefined,
+): number | undefined => {
+  if (transcriptPath === undefined) return undefined;
+  if (!existsSync(transcriptPath)) return undefined;
+  const timestamps = parsedTranscriptEntries(transcriptPath)
+    .filter(isConversationalEntry)
+    .map(timestampMsOf)
+    .filter(Number.isFinite);
+  return maxOf(timestamps);
 };

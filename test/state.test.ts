@@ -4,6 +4,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  readAllSessions,
   readSessionState,
   writeSessionState,
   type SessionState,
@@ -17,6 +18,7 @@ const sampleState = (overrides: Partial<SessionState> = {}): SessionState => ({
   cumulativeCacheWriteTokens: 50,
   cumulativeCacheReadTokens: 850,
   cumulativeOutputTokens: 200,
+  modelId: "claude-sonnet-4-6",
   lastUpdatedAt: "2026-05-28T10:00:00.000Z",
   ...overrides,
 });
@@ -65,20 +67,51 @@ test("re-writing the same session id overwrites prior state", () => {
   assert.strictEqual(final?.cumulativeFreshInputTokens, 2);
 });
 
-test("state file uses a versioned envelope (v2 after the cache-aware refactor)", () => {
+test("state file uses a versioned envelope (v3 after adding modelId per session)", () => {
   const stateFilePath = newTempStateFilePath();
   writeSessionState("session-v", sampleState(), stateFilePath);
   const parsed = JSON.parse(readFileSync(stateFilePath, "utf8"));
-  assert.strictEqual(parsed.version, 2);
+  assert.strictEqual(parsed.version, 3);
   assert.ok("sessions" in parsed);
 });
 
-test("old v1 state files are silently discarded — no broken-shape data leaks through", () => {
+test("old v2 state files are silently discarded — no broken-shape data leaks through", () => {
   const stateFilePath = newTempStateFilePath();
-  const oldV1 = {
-    version: 1,
-    sessions: { "old-session": { cumulativeInputTokens: 999, cumulativeOutputTokens: 99 } },
+  const oldV2 = {
+    version: 2,
+    sessions: {
+      "old-session": {
+        cumulativeFreshInputTokens: 100,
+        cumulativeCacheWriteTokens: 50,
+        cumulativeCacheReadTokens: 850,
+        cumulativeOutputTokens: 200,
+        lastUpdatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    },
   };
-  writeFileSync(stateFilePath, JSON.stringify(oldV1), "utf8");
+  writeFileSync(stateFilePath, JSON.stringify(oldV2), "utf8");
   assert.strictEqual(readSessionState("old-session", stateFilePath), undefined);
+});
+
+test("readAllSessions returns every persisted session", () => {
+  const stateFilePath = newTempStateFilePath();
+  writeSessionState(
+    "session-a",
+    sampleState({ cumulativeOutputTokens: 100 }),
+    stateFilePath,
+  );
+  writeSessionState(
+    "session-b",
+    sampleState({ cumulativeOutputTokens: 200 }),
+    stateFilePath,
+  );
+  const allSessions = readAllSessions(stateFilePath);
+  assert.strictEqual(allSessions.length, 2);
+  const outputs = allSessions.map((session) => session.cumulativeOutputTokens).sort();
+  assert.deepStrictEqual(outputs, [100, 200]);
+});
+
+test("readAllSessions returns an empty array for a missing state file", () => {
+  const stateFilePath = newTempStateFilePath();
+  assert.deepStrictEqual(readAllSessions(stateFilePath), []);
 });

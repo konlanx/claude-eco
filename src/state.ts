@@ -7,10 +7,11 @@ export type SessionState = {
   readonly cumulativeCacheWriteTokens: number;
   readonly cumulativeCacheReadTokens: number;
   readonly cumulativeOutputTokens: number;
+  readonly modelId: string;
   readonly lastUpdatedAt: string;
 };
 
-const STATE_FILE_VERSION = 2;
+const STATE_FILE_VERSION = 3;
 
 type StateFileContents = {
   readonly version: typeof STATE_FILE_VERSION;
@@ -60,6 +61,11 @@ export const readSessionState = (
   sessionId: string,
   filePath: string = DEFAULT_STATE_FILE_PATH,
 ): SessionState | undefined => sessionStateFromFile(filePath, sessionId);
+
+export const readAllSessions = (
+  filePath: string = DEFAULT_STATE_FILE_PATH,
+): ReadonlyArray<SessionState> =>
+  Object.values(readStateFileContents(filePath).sessions);
 
 const ensureParentDirectoryExists = (filePath: string): void => {
   mkdirSync(dirname(filePath), { recursive: true });

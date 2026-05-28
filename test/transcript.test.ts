@@ -1,7 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { resolve } from "node:path";
-import { countUserTurns, sumSessionUsage } from "../src/transcript";
+import {
+  countUserTurns,
+  lastConversationalActivityMs,
+  sumSessionUsage,
+} from "../src/transcript";
 
 const fixturePath = (fixtureName: string): string =>
   resolve("test/fixtures/transcripts", fixtureName);
@@ -50,4 +54,24 @@ test("sumSessionUsage keeps fresh / cache-write / cache-read / output separate, 
   assert.strictEqual(usage.cacheWriteTokens, 150);
   assert.strictEqual(usage.cacheReadTokens, 370);
   assert.strictEqual(usage.outputTokens, 240);
+});
+
+test("lastConversationalActivityMs returns undefined for missing or pathless inputs", () => {
+  assert.strictEqual(lastConversationalActivityMs(undefined), undefined);
+  assert.strictEqual(
+    lastConversationalActivityMs(fixturePath("definitely-not-a-real-file.jsonl")),
+    undefined,
+  );
+});
+
+test("lastConversationalActivityMs returns the latest user/assistant timestamp, ignoring system events", () => {
+  const ms = lastConversationalActivityMs(fixturePath("with-timestamps.jsonl"));
+  assert.strictEqual(ms, Date.parse("2020-01-01T10:05:30.000Z"));
+});
+
+test("lastConversationalActivityMs returns undefined when no conversational entries exist", () => {
+  assert.strictEqual(
+    lastConversationalActivityMs(fixturePath("no-turns.jsonl")),
+    undefined,
+  );
 });

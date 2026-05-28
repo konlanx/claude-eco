@@ -44,9 +44,10 @@ test("renders all three environmental metrics with units for a real sonnet paylo
   assert.strictEqual(result.exitStatus, 0);
   assert.strictEqual(result.stderr, "");
   const stripped = stripAnsi(result.stdout);
-  assert.match(stripped, /⚡ \d+\.\d{2}Wh/);
-  assert.match(stripped, /💧 \d+\.\d{2}ml/);
-  assert.match(stripped, /💨 \d+\.\d{2}g CO₂/);
+  assert.match(stripped, /^Session  ⚡/);
+  assert.match(stripped, /⚡ \d+\.\d{2} (Wh|kWh)/);
+  assert.match(stripped, /💧 \d+\.\d{2} (ml|L)/);
+  assert.match(stripped, /💨 \d+\.\d{2} (g|kg|t) CO₂/);
   assert.match(stripped, /Sonnet 4\.6/);
 });
 
@@ -59,9 +60,9 @@ test("handles a zero-token freshly-started session without crashing", () => {
   const result = invokeCli(loadFixture("empty-session"));
   assert.strictEqual(result.exitStatus, 0);
   const stripped = stripAnsi(result.stdout);
-  assert.match(stripped, /⚡ 0\.00Wh/);
-  assert.match(stripped, /💧 0\.00ml/);
-  assert.match(stripped, /💨 0\.00g CO₂/);
+  assert.match(stripped, /⚡ 0\.00 Wh/);
+  assert.match(stripped, /💧 0\.00 ml/);
+  assert.match(stripped, /💨 0\.00 g CO₂/);
 });
 
 test("computes cumulative metrics from the transcript, not the payload snapshot", () => {
@@ -73,9 +74,9 @@ test("computes cumulative metrics from the transcript, not the payload snapshot"
   assert.strictEqual(result.exitStatus, 0);
   const stripped = stripAnsi(result.stdout);
   assert.match(stripped, /Opus 4\.7/);
-  assert.match(stripped, /⚡ 3\.46Wh/);
-  assert.match(stripped, /💧 22\.28ml/);
-  assert.match(stripped, /💨 1\.54g CO₂/);
+  assert.match(stripped, /⚡ 3\.46 Wh/);
+  assert.match(stripped, /💧 22\.28 ml/);
+  assert.match(stripped, /💨 1\.54 g CO₂/);
   assert.match(stripped, /2 msgs/);
 });
 
