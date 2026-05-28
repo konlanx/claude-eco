@@ -47,21 +47,36 @@ test("negative timestamps still produce a valid selector (clock skew safety)", (
 
 test("formatTrailingEquivalent prefixes the energy equivalent with ⚡", () => {
   assert.strictEqual(
-    formatTrailingEquivalent("energy", sampleMetrics),
-    "⚡ 3 min of LED bulb",
+    formatTrailingEquivalent("energy", sampleMetrics, true),
+    "⚡ 2.8 min of LED bulb",
   );
 });
 
 test("formatTrailingEquivalent prefixes the water equivalent with 💧", () => {
   assert.strictEqual(
-    formatTrailingEquivalent("water", sampleMetrics),
-    "💧 15 drops",
+    formatTrailingEquivalent("water", sampleMetrics, true),
+    "💧 15.2 drops",
   );
 });
 
 test("formatTrailingEquivalent prefixes the co2 equivalent with 💨", () => {
   assert.strictEqual(
-    formatTrailingEquivalent("co2", sampleMetrics),
+    formatTrailingEquivalent("co2", sampleMetrics, true),
     "💨 6 Google searches",
+  );
+});
+
+test("formatTrailingEquivalent falls back to single-letter prefixes when unsupported", () => {
+  assert.strictEqual(
+    formatTrailingEquivalent("energy", sampleMetrics, false),
+    "E 2.8 min of LED bulb",
+  );
+  assert.strictEqual(
+    formatTrailingEquivalent("water", sampleMetrics, false),
+    "W 15.2 drops",
+  );
+  assert.strictEqual(
+    formatTrailingEquivalent("co2", sampleMetrics, false),
+    "P 6 Google searches",
   );
 });

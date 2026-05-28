@@ -211,8 +211,16 @@ const CO2_EQUIVALENTS: ReadonlyArray<Equivalent> = [
   { unitCost: 69000000, singularLabel: "ICE car lifetime", pluralLabel: "ICE car lifetimes" },
 ];
 
-const roundedAtLeastOne = (value: number): number =>
-  Math.max(1, Math.round(value));
+const MINIMUM_DISPLAYED_COUNT = 0.1;
+
+const roundedToOneDecimal = (value: number): number =>
+  Math.round(value * 10) / 10;
+
+const countAgainst = (value: number, unitCost: number): number =>
+  Math.max(MINIMUM_DISPLAYED_COUNT, roundedToOneDecimal(value / unitCost));
+
+const formatCount = (count: number): string =>
+  count.toFixed(1).replace(/\.0$/, "");
 
 const pickEquivalentForValue = (
   value: number,
@@ -233,8 +241,8 @@ const formatAgainst = (
   equivalents: ReadonlyArray<Equivalent>,
 ): string => {
   const equivalent = pickEquivalentForValue(value, equivalents);
-  const count = roundedAtLeastOne(value / equivalent.unitCost);
-  return `${count} ${labelForCount(equivalent, count)}`;
+  const count = countAgainst(value, equivalent.unitCost);
+  return `${formatCount(count)} ${labelForCount(equivalent, count)}`;
 };
 
 export const formatEnergyEquivalent = (wattHours: number): string =>

@@ -1,15 +1,12 @@
 import type { EnvironmentalMetrics } from "./calculator";
 
 const ANSI_RESET = "\x1b[0m";
-const ANSI_GREEN = "\x1b[32m";
 const ANSI_YELLOW = "\x1b[33m";
-const ANSI_RED = "\x1b[31m";
+const ANSI_BLUE = "\x1b[34m";
+const ANSI_WHITE = "\x1b[37m";
 const ANSI_BOLD = "\x1b[1m";
 const ANSI_DIM = "\x1b[2m";
 const ANSI_ESCAPE_PATTERN = /\x1b\[[0-9;]*m/g;
-
-const ENERGY_THRESHOLD_LOW_WATT_HOURS = 0.5;
-const ENERGY_THRESHOLD_HIGH_WATT_HOURS = 2.0;
 
 const SEGMENT_GAP = "  ";
 const SEPARATOR_RAW = "  ·  ";
@@ -20,6 +17,7 @@ export type DisplayInput = {
   readonly rightSegments: ReadonlyArray<string>;
   readonly trailingSegment?: string;
   readonly availableColumns: number;
+  readonly supportsEmoji: boolean;
 };
 
 type LayoutMode = "full" | "without-model" | "trailing-only" | "minimal";
@@ -36,12 +34,6 @@ const visibleWidthOf = (text: string): number =>
 
 const colorize = (ansiColor: string, content: string): string =>
   `${ansiColor}${content}${ANSI_RESET}`;
-
-const colorForEnergy = (wattHours: number): string => {
-  if (wattHours < ENERGY_THRESHOLD_LOW_WATT_HOURS) return ANSI_GREEN;
-  if (wattHours < ENERGY_THRESHOLD_HIGH_WATT_HOURS) return ANSI_YELLOW;
-  return ANSI_RED;
-};
 
 const formatTwoDecimals = (value: number): string => value.toFixed(2);
 
@@ -71,22 +63,40 @@ const scaleCo2ForDisplay = (grams: number): ScaledValue => {
   return { display: formatTwoDecimals(grams), unit: "g" };
 };
 
-const renderEnergySegment = (wattHours: number): string => {
+const energyPrefix = (supportsEmoji: boolean): string =>
+  supportsEmoji ? "⚡ " : "E ";
+
+const waterPrefix = (supportsEmoji: boolean): string =>
+  supportsEmoji ? "💧 " : "W ";
+
+const co2Prefix = (supportsEmoji: boolean): string =>
+  supportsEmoji ? "💨 " : "P ";
+
+const co2Suffix = (supportsEmoji: boolean): string =>
+  supportsEmoji ? " CO₂" : " CO2";
+
+const renderEnergySegment = (wattHours: number, supportsEmoji: boolean): string => {
   const scaled = scaleEnergyForDisplay(wattHours);
   return colorize(
-    colorForEnergy(wattHours),
-    `⚡ ${scaled.display} ${scaled.unit}`,
+    ANSI_YELLOW,
+    `${energyPrefix(supportsEmoji)}${scaled.display} ${scaled.unit}`,
   );
 };
 
-const renderWaterSegment = (milliliters: number): string => {
+const renderWaterSegment = (milliliters: number, supportsEmoji: boolean): string => {
   const scaled = scaleWaterForDisplay(milliliters);
-  return `💧 ${scaled.display} ${scaled.unit}`;
+  return colorize(
+    ANSI_BLUE,
+    `${waterPrefix(supportsEmoji)}${scaled.display} ${scaled.unit}`,
+  );
 };
 
-const renderCo2Segment = (grams: number): string => {
+const renderCo2Segment = (grams: number, supportsEmoji: boolean): string => {
   const scaled = scaleCo2ForDisplay(grams);
-  return `💨 ${scaled.display} ${scaled.unit} CO₂`;
+  return colorize(
+    ANSI_WHITE,
+    `${co2Prefix(supportsEmoji)}${scaled.display} ${scaled.unit}${co2Suffix(supportsEmoji)}`,
+  );
 };
 
 const renderLeftLabel = (leftLabel: string | undefined): string => {
@@ -112,9 +122,9 @@ const trailingForLayout = (
 };
 
 const renderMetricsRow = (input: DisplayInput): string => {
-  const energy = renderEnergySegment(input.metrics.energy.wattHours);
-  const water = renderWaterSegment(input.metrics.water.milliliters);
-  const co2 = renderCo2Segment(input.metrics.co2.grams);
+  const energy = renderEnergySegment(input.metrics.energy.wattHours, input.supportsEmoji);
+  const water = renderWaterSegment(input.metrics.water.milliliters, input.supportsEmoji);
+  const co2 = renderCo2Segment(input.metrics.co2.grams, input.supportsEmoji);
   return `${renderLeftLabel(input.leftLabel)}${[energy, water, co2].join(SEGMENT_GAP)}`;
 };
 

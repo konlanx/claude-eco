@@ -19,6 +19,7 @@ import {
   formatTrailingEquivalent,
   selectMetricForTick,
 } from "./equivalent-cycle";
+import { terminalSupportsEmoji } from "./emoji-support";
 
 type StatuslineModel = {
   readonly id: string;
@@ -93,12 +94,16 @@ const sumAllTimeMetrics = (
 ): EnvironmentalMetrics =>
   sessions.map(metricsForSession).reduce(addMetrics, ZERO_METRICS);
 
-const trailingEquivalentNow = (metrics: EnvironmentalMetrics): string =>
-  formatTrailingEquivalent(selectMetricForTick(Date.now()), metrics);
+const trailingEquivalentNow = (
+  metrics: EnvironmentalMetrics,
+  supportsEmoji: boolean,
+): string =>
+  formatTrailingEquivalent(selectMetricForTick(Date.now()), metrics, supportsEmoji);
 
 const currentSessionDisplayInput = (
   payload: StatuslinePayload,
   cumulativeUsage: CumulativeUsage,
+  supportsEmoji: boolean,
 ): DisplayInput => {
   const metrics = calculateEnvironmentalMetrics({
     freshInputTokens: cumulativeUsage.freshInputTokens,
@@ -114,20 +119,25 @@ const currentSessionDisplayInput = (
       `${countUserTurns(payload.transcript_path)} msgs`,
       payload.model.display_name,
     ],
-    trailingSegment: trailingEquivalentNow(metrics),
+    trailingSegment: trailingEquivalentNow(metrics, supportsEmoji),
     availableColumns: payload.columns ?? DEFAULT_AVAILABLE_COLUMNS,
+    supportsEmoji,
   };
 };
 
-const allTimeDisplayInput = (payload: StatuslinePayload): DisplayInput => {
+const allTimeDisplayInput = (
+  payload: StatuslinePayload,
+  supportsEmoji: boolean,
+): DisplayInput => {
   const allSessions = readAllSessions();
   const metrics = sumAllTimeMetrics(allSessions);
   return {
     metrics,
     leftLabel: ALL_TIME_LEFT_LABEL,
     rightSegments: [`${allSessions.length} sessions`],
-    trailingSegment: trailingEquivalentNow(metrics),
+    trailingSegment: trailingEquivalentNow(metrics, supportsEmoji),
     availableColumns: payload.columns ?? DEFAULT_AVAILABLE_COLUMNS,
+    supportsEmoji,
   };
 };
 
@@ -135,10 +145,11 @@ const displayInputForMode = (
   mode: DisplayMode,
   payload: StatuslinePayload,
   cumulativeUsage: CumulativeUsage,
+  supportsEmoji: boolean,
 ): DisplayInput =>
   mode === "current-session"
-    ? currentSessionDisplayInput(payload, cumulativeUsage)
-    : allTimeDisplayInput(payload);
+    ? currentSessionDisplayInput(payload, cumulativeUsage, supportsEmoji)
+    : allTimeDisplayInput(payload, supportsEmoji);
 
 const buildStatuslineOutput = (payload: StatuslinePayload): string => {
   const cumulativeUsage = sumSessionUsage(payload.transcript_path);
@@ -147,7 +158,10 @@ const buildStatuslineOutput = (payload: StatuslinePayload): string => {
     lastConversationalActivityMs(payload.transcript_path),
     Date.now(),
   );
-  return renderStatuslineFor(displayInputForMode(mode, payload, cumulativeUsage));
+  const supportsEmoji = terminalSupportsEmoji();
+  return renderStatuslineFor(
+    displayInputForMode(mode, payload, cumulativeUsage, supportsEmoji),
+  );
 };
 
 export const runStatusline = async (): Promise<void> => {
