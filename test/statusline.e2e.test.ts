@@ -65,6 +65,56 @@ test("handles a zero-token freshly-started session without crashing", () => {
   assert.match(stripped, /💨 0\.00 g CO₂/);
 });
 
+test("omits the trailing equivalent when all metrics are zero", () => {
+  const result = invokeCli(loadFixture("empty-session"));
+  const stripped = stripAnsi(result.stdout);
+  assert.doesNotMatch(stripped, /min of LED bulb|drops|Google searches/);
+});
+
+test("persists workspace.project_dir from payload onto the saved session state", () => {
+  const isolatedHome = newIsolatedHome();
+  const projectDirectory = "/Users/test/dev/example-project";
+  const payload = {
+    ...JSON.parse(loadFixture("sonnet")),
+    transcript_path: resolve("test/fixtures/transcripts/usage-three-responses.jsonl"),
+    workspace: { project_dir: projectDirectory },
+  };
+  const spawnResult = spawnSync("node", [cliExecutablePath], {
+    input: JSON.stringify(payload),
+    encoding: "utf8",
+    env: { ...process.env, HOME: isolatedHome },
+  });
+  assert.strictEqual(spawnResult.status, 0);
+  const stateFile = JSON.parse(
+    readFileSync(join(isolatedHome, ".claude", "claude-eco-state.json"), "utf8"),
+  );
+  const persistedSession = stateFile.sessions["test-session-sonnet"];
+  assert.strictEqual(persistedSession.cwd, projectDirectory);
+});
+
+test("falls back to cwd when workspace block is absent", () => {
+  const isolatedHome = newIsolatedHome();
+  const fallbackDirectory = "/Users/test/dev/no-workspace";
+  const payload = {
+    ...JSON.parse(loadFixture("sonnet")),
+    transcript_path: resolve("test/fixtures/transcripts/usage-three-responses.jsonl"),
+    cwd: fallbackDirectory,
+  };
+  const spawnResult = spawnSync("node", [cliExecutablePath], {
+    input: JSON.stringify(payload),
+    encoding: "utf8",
+    env: { ...process.env, HOME: isolatedHome },
+  });
+  assert.strictEqual(spawnResult.status, 0);
+  const stateFile = JSON.parse(
+    readFileSync(join(isolatedHome, ".claude", "claude-eco-state.json"), "utf8"),
+  );
+  assert.strictEqual(
+    stateFile.sessions["test-session-sonnet"].cwd,
+    fallbackDirectory,
+  );
+});
+
 test("computes cumulative metrics from the transcript, not the payload snapshot", () => {
   const payload = {
     ...JSON.parse(loadFixture("opus")),

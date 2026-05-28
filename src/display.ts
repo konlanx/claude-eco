@@ -15,7 +15,7 @@ export type DisplayInput = {
   readonly metrics: EnvironmentalMetrics;
   readonly leftLabel?: string;
   readonly rightSegments: ReadonlyArray<string>;
-  readonly trailingSegment?: string;
+  readonly trailingSegment?: string | undefined;
   readonly availableColumns: number;
   readonly supportsEmoji: boolean;
 };

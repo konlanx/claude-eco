@@ -9,6 +9,7 @@ export type SessionState = {
   readonly cumulativeOutputTokens: number;
   readonly modelId: string;
   readonly lastUpdatedAt: string;
+  readonly cwd?: string | undefined;
 };
 
 const STATE_FILE_VERSION = 3;

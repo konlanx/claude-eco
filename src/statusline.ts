@@ -31,17 +31,28 @@ type StatuslineContextWindow = {
   readonly total_output_tokens: number;
 };
 
+type StatuslineWorkspace = {
+  readonly current_dir?: string;
+  readonly project_dir?: string;
+};
+
 type StatuslinePayload = {
   readonly session_id: string;
   readonly model: StatuslineModel;
   readonly context_window: StatuslineContextWindow;
   readonly transcript_path?: string;
   readonly columns?: number;
+  readonly cwd?: string;
+  readonly workspace?: StatuslineWorkspace;
 };
 
 const DEFAULT_AVAILABLE_COLUMNS = 80;
 const CURRENT_SESSION_LEFT_LABEL = "Session";
+const PROJECT_LEFT_LABEL = "Project";
 const ALL_TIME_LEFT_LABEL = "Total";
+
+const projectKeyForPayload = (payload: StatuslinePayload): string | undefined =>
+  payload.workspace?.project_dir ?? payload.workspace?.current_dir ?? payload.cwd;
 
 const ZERO_METRICS: EnvironmentalMetrics = {
   energy: { wattHours: 0 },
@@ -61,6 +72,7 @@ const persistCurrentSession = (
   sessionId: string,
   cumulativeUsage: CumulativeUsage,
   modelId: string,
+  cwd: string | undefined,
 ): void =>
   writeSessionState(sessionId, {
     cumulativeFreshInputTokens: cumulativeUsage.freshInputTokens,
@@ -69,6 +81,7 @@ const persistCurrentSession = (
     cumulativeOutputTokens: cumulativeUsage.outputTokens,
     modelId,
     lastUpdatedAt: new Date().toISOString(),
+    cwd,
   });
 
 const metricsForSession = (session: SessionState): EnvironmentalMetrics =>
@@ -94,11 +107,22 @@ const sumAllTimeMetrics = (
 ): EnvironmentalMetrics =>
   sessions.map(metricsForSession).reduce(addMetrics, ZERO_METRICS);
 
+const allMetricsZero = (metrics: EnvironmentalMetrics): boolean =>
+  metrics.energy.wattHours === 0 &&
+  metrics.water.milliliters === 0 &&
+  metrics.co2.grams === 0;
+
 const trailingEquivalentNow = (
   metrics: EnvironmentalMetrics,
   supportsEmoji: boolean,
-): string =>
-  formatTrailingEquivalent(selectMetricForTick(Date.now()), metrics, supportsEmoji);
+): string | undefined => {
+  if (allMetricsZero(metrics)) return undefined;
+  return formatTrailingEquivalent(
+    selectMetricForTick(Date.now()),
+    metrics,
+    supportsEmoji,
+  );
+};
 
 const currentSessionDisplayInput = (
   payload: StatuslinePayload,
@@ -141,19 +165,60 @@ const allTimeDisplayInput = (
   };
 };
 
+const sessionsInProject = (
+  projectKey: string,
+): ReadonlyArray<SessionState> =>
+  readAllSessions().filter((session) => session.cwd === projectKey);
+
+const projectTotalDisplayInput = (
+  payload: StatuslinePayload,
+  supportsEmoji: boolean,
+  projectKey: string,
+): DisplayInput => {
+  const projectSessions = sessionsInProject(projectKey);
+  const metrics = sumAllTimeMetrics(projectSessions);
+  return {
+    metrics,
+    leftLabel: PROJECT_LEFT_LABEL,
+    rightSegments: [`${projectSessions.length} sessions`],
+    trailingSegment: trailingEquivalentNow(metrics, supportsEmoji),
+    availableColumns: payload.columns ?? DEFAULT_AVAILABLE_COLUMNS,
+    supportsEmoji,
+  };
+};
+
+const projectOrAllTimeDisplayInput = (
+  payload: StatuslinePayload,
+  supportsEmoji: boolean,
+): DisplayInput => {
+  const projectKey = projectKeyForPayload(payload);
+  if (projectKey === undefined) return allTimeDisplayInput(payload, supportsEmoji);
+  return projectTotalDisplayInput(payload, supportsEmoji, projectKey);
+};
+
 const displayInputForMode = (
   mode: DisplayMode,
   payload: StatuslinePayload,
   cumulativeUsage: CumulativeUsage,
   supportsEmoji: boolean,
-): DisplayInput =>
-  mode === "current-session"
-    ? currentSessionDisplayInput(payload, cumulativeUsage, supportsEmoji)
-    : allTimeDisplayInput(payload, supportsEmoji);
+): DisplayInput => {
+  if (mode === "current-session") {
+    return currentSessionDisplayInput(payload, cumulativeUsage, supportsEmoji);
+  }
+  if (mode === "project-total") {
+    return projectOrAllTimeDisplayInput(payload, supportsEmoji);
+  }
+  return allTimeDisplayInput(payload, supportsEmoji);
+};
 
 const buildStatuslineOutput = (payload: StatuslinePayload): string => {
   const cumulativeUsage = sumSessionUsage(payload.transcript_path);
-  persistCurrentSession(payload.session_id, cumulativeUsage, payload.model.id);
+  persistCurrentSession(
+    payload.session_id,
+    cumulativeUsage,
+    payload.model.id,
+    projectKeyForPayload(payload),
+  );
   const mode = determineDisplayMode(
     lastConversationalActivityMs(payload.transcript_path),
     Date.now(),

@@ -115,3 +115,23 @@ test("readAllSessions returns an empty array for a missing state file", () => {
   const stateFilePath = newTempStateFilePath();
   assert.deepStrictEqual(readAllSessions(stateFilePath), []);
 });
+
+test("optional cwd is round-tripped through write and read", () => {
+  const stateFilePath = newTempStateFilePath();
+  const stateWithCwd = sampleState({ cwd: "/home/user/dev/project-a" });
+  writeSessionState("session-with-cwd", stateWithCwd, stateFilePath);
+  assert.strictEqual(
+    readSessionState("session-with-cwd", stateFilePath)?.cwd,
+    "/home/user/dev/project-a",
+  );
+});
+
+test("session state without cwd loads cleanly (backward compatibility)", () => {
+  const stateFilePath = newTempStateFilePath();
+  const stateWithoutCwd = sampleState();
+  writeSessionState("legacy-session", stateWithoutCwd, stateFilePath);
+  assert.strictEqual(
+    readSessionState("legacy-session", stateFilePath)?.cwd,
+    undefined,
+  );
+});
