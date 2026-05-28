@@ -35,7 +35,6 @@ const printInstalled = (settingsPath: string): void => {
   process.stdout.write(
     `claude-eco wired up in ${settingsPath}.\n\n` +
       `${indented(preview, "  ")}\n\n` +
-      `refreshInterval=10 makes the line update every 10 s — needed for the idle Total view and the cycled equivalents.\n` +
       `Open a new Claude Code session to see it.\n`,
   );
 };
