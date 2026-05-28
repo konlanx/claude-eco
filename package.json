@@ -1,6 +1,6 @@
 {
   "name": "claude-eco",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Display real-time energy, water, and CO₂ metrics in the Claude Code statusline, derived from live token counts.",
   "license": "MIT",
   "author": "konlanx",
