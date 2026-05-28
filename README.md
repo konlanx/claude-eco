@@ -10,7 +10,7 @@ Session  ⚡ 0.42 Wh  💧 0.76 ml  💨 0.18 g CO₂  ·  12 msgs  ·  Sonnet 4
 [![CI](https://github.com/konlanx/claude-eco/actions/workflows/ci.yml/badge.svg)](https://github.com/konlanx/claude-eco/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 
-Numbers grow as you work. Color flips green → amber → red as energy intensity rises. Units auto-scale (Wh → kWh, ml → L, g → kg → t). Every 10 seconds the trailing equivalent rotates through energy, water, and CO₂.
+Numbers grow as you work. Each metric has its own color so the segments are easy to scan: energy yellow, water blue, CO₂ white. Units auto-scale (Wh → kWh, ml → L, g → kg → t). Every 10 seconds the trailing equivalent rotates through energy, water, and CO₂.
 
 ## Install
 
@@ -26,7 +26,7 @@ Requires Node 20+ and Claude Code v2.1.132 or newer.
 
 ## What you see
 
-Two modes adapt to your activity:
+Three views adapt to your activity:
 
 **Session** — the current Claude Code conversation, shown while you're working:
 
@@ -34,19 +34,39 @@ Two modes adapt to your activity:
 Session  ⚡ 0.42 Wh  💧 0.76 ml  💨 0.18 g CO₂  ·  12 msgs  ·  Sonnet 4.6  ·  ⚡ 3 min of LED bulb
 ```
 
-**Total** — cumulative across every session you've ever run, shown after 30 seconds of conversational idle:
+After 30 seconds of conversational idle the line stops showing the current session and alternates between two cumulative views every 30 seconds:
+
+**Total** — cumulative across every session you've ever run:
 
 ```
 Total  ⚡ 8.63 kWh  💧 55.57 L  💨 3.84 kg CO₂  ·  7 sessions  ·  ⚡ 5 h of oven
 ```
 
+**Project** — cumulative across only the sessions that ran in the current project directory:
+
+```
+Project  ⚡ 2.14 kWh  💧 13.78 L  💨 0.95 kg CO₂  ·  3 sessions  ·  ⚡ 1.4 h of oven
+```
+
+Project attribution uses the `workspace.project_dir` field Claude Code passes in its statusline payload (falling back to `cwd`). Sessions saved before this feature was added have no project recorded and only contribute to **Total**.
+
 The trailing element (`⚡ 3 min of LED bulb`, `💧 1 bath`, `💨 1 NYC–London R/T`, etc.) is a relatable equivalent picked from a table of 81 sourced reference points. It cycles between the three metrics on a 10-second timer, choosing the largest unit whose cost is ≤ your current usage — so the count stays readable from a fresh session up to long-term accumulations.
 
 On narrow terminals the line degrades gracefully: the model name drops first, then the message count, then the trailing equivalent, finally leaving just the three metrics.
 
+### Older or restricted terminals
+
+Emojis (⚡ 💧 💨) and the CO₂ subscript don't render correctly in every terminal — Android Studio / IntelliJ's embedded terminal is a frequent example. `claude-eco` auto-detects known-bad environments (`TERMINAL_EMULATOR=JetBrains-JediTerm`, `TERM=dumb`, non-UTF-8 locale) and falls back to single-letter prefixes plus plain `CO2`:
+
+```
+Session  E 0.42 Wh  W 0.76 ml  P 0.18 g CO2  ·  12 msgs  ·  Sonnet 4.6  ·  E 3 min of LED bulb
+```
+
+`E` for energy, `W` for water, `P` for pollution. Force the fallback in any terminal with `CLAUDE_ECO_NO_EMOJI=1`.
+
 ## How it works
 
-Claude Code calls a statusline command on every refresh tick and pipes session metadata to stdin. `claude-eco` reads the payload, walks the session's transcript JSONL to compute cumulative token usage by channel (fresh input / cache write / cache read / output), applies the calibrated coefficients, and prints a formatted line. Per-session totals are persisted to `~/.claude/claude-eco-state.json` to feed the cross-session Total view.
+Claude Code calls a statusline command on every refresh tick and pipes session metadata to stdin. `claude-eco` reads the payload, walks the session's transcript JSONL to compute cumulative token usage by channel (fresh input / cache write / cache read / output), applies the calibrated coefficients, and prints a formatted line. Per-session totals (with the originating `workspace.project_dir`) are persisted to `~/.claude/claude-eco-state.json` to feed the cross-session Total and Project views.
 
 ## Methodology
 
@@ -90,7 +110,7 @@ Treat absolute numbers as ±50%. They're useful for ordering-of-magnitude intuit
 - **No per-token energy is published for any Claude 4 model.** The Sonnet baseline is derived from Epoch AI's GPT-4o estimate (which Epoch itself describes as pessimistic) via Anthropic's input/output pricing ratio.
 - **Cache and tier ratios come from Anthropic's pricing**, not measured energy. Pricing reflects compute cost approximately but also includes margin and positioning — OpenAI prices cache reads at 0.5× (vs Anthropic's 0.10×), same physics, suggesting pricing is not a clean energy proxy.
 - **Water and CO₂ factors are global averages.** Your actual data center region and the grid mix supplying it will differ.
-- **Slow typing counts as idle.** Activity detection uses transcript timestamps; if you compose a prompt for more than 30 seconds without sending, the line flips to Total mid-composition.
+- **Slow typing counts as idle.** Activity detection uses transcript timestamps; if you compose a prompt for more than 30 seconds without sending, the line flips to Total / Project mid-composition.
 
 ## License
 
