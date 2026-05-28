@@ -56,8 +56,8 @@ const isAssistantEntry = (
 ): entry is AssistantTranscriptEntry => {
   if (entry?.type !== "assistant") return false;
   if (entry.message?.id === undefined) return false;
-  if (entry.message.usage === undefined) return false;
-  return true;
+  return entry.message.usage !== undefined;
+
 };
 
 const promptIdOf = (entry: TranscriptEntry): string | undefined => entry.promptId;

@@ -3,6 +3,28 @@
   "version": "0.1.0",
   "description": "Display real-time energy, water, and CO₂ metrics in the Claude Code statusline, derived from live token counts.",
   "license": "MIT",
+  "author": "konlanx",
+  "homepage": "https://github.com/konlanx/claude-eco#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/konlanx/claude-eco.git"
+  },
+  "bugs": {
+    "url": "https://github.com/konlanx/claude-eco/issues"
+  },
+  "keywords": [
+    "claude-code",
+    "statusline",
+    "energy",
+    "co2",
+    "water",
+    "footprint",
+    "carbon",
+    "environment",
+    "sustainability",
+    "anthropic",
+    "ai-impact"
+  ],
   "bin": {
     "claude-eco": "dist/index.js"
   },
@@ -18,7 +40,7 @@
     "prepublishOnly": "npm run build"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
