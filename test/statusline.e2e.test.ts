@@ -4,6 +4,8 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import assert from "node:assert/strict";
 
+const ANSI_ESCAPE_PATTERN = /\x1b\[[0-9;]*m/g;
+
 type CliInvocationResult = {
   readonly stdout: string;
   readonly stderr: string;
@@ -18,6 +20,8 @@ const fixturePath = (fixtureName: string): string =>
 const loadFixture = (fixtureName: string): string =>
   readFileSync(fixturePath(fixtureName), "utf8");
 
+const stripAnsi = (text: string): string => text.replace(ANSI_ESCAPE_PATTERN, "");
+
 const invokeCli = (payloadJson: string): CliInvocationResult => {
   const spawnResult = spawnSync("node", [cliExecutablePath], {
     input: payloadJson,
@@ -30,25 +34,37 @@ const invokeCli = (payloadJson: string): CliInvocationResult => {
   };
 };
 
-test("formats a sonnet payload with token counts and model id", () => {
+test("renders all three environmental metrics with units for a real sonnet payload", () => {
   const result = invokeCli(loadFixture("sonnet"));
   assert.strictEqual(result.exitStatus, 0);
   assert.strictEqual(result.stderr, "");
-  assert.strictEqual(result.stdout, "↑ 12345 ↓ 678 · claude-sonnet-4-6");
+  const stripped = stripAnsi(result.stdout);
+  assert.match(stripped, /⚡ \d+\.\d{2}Wh/);
+  assert.match(stripped, /💧 \d+\.\d{2}ml/);
+  assert.match(stripped, /💨 \d+\.\d{2}g CO₂/);
+  assert.match(stripped, /Sonnet 4\.6/);
 });
 
-test("handles large opus token counts without truncation", () => {
-  const result = invokeCli(loadFixture("opus"));
-  assert.strictEqual(result.exitStatus, 0);
-  assert.strictEqual(result.stderr, "");
-  assert.strictEqual(result.stdout, "↑ 250000 ↓ 12000 · claude-opus-4-7");
+test("emits ANSI color codes (statusline is colorized, not bare text)", () => {
+  const result = invokeCli(loadFixture("sonnet"));
+  assert.match(result.stdout, ANSI_ESCAPE_PATTERN);
 });
 
-test("renders a freshly-started session with zero tokens", () => {
+test("handles a zero-token freshly-started session without crashing", () => {
   const result = invokeCli(loadFixture("empty-session"));
   assert.strictEqual(result.exitStatus, 0);
-  assert.strictEqual(result.stderr, "");
-  assert.strictEqual(result.stdout, "↑ 0 ↓ 0 · claude-haiku-4-5");
+  const stripped = stripAnsi(result.stdout);
+  assert.match(stripped, /⚡ 0\.00Wh/);
+  assert.match(stripped, /💧 0\.00ml/);
+  assert.match(stripped, /💨 0\.00g CO₂/);
+});
+
+test("scales metrics correctly for a heavy opus session", () => {
+  const result = invokeCli(loadFixture("opus"));
+  assert.strictEqual(result.exitStatus, 0);
+  const stripped = stripAnsi(result.stdout);
+  assert.match(stripped, /Opus 4\.7/);
+  assert.match(stripped, /⚡ 174\.00Wh/);
 });
 
 test("exits non-zero and reports an error when stdin is not valid json", () => {

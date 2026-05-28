@@ -1,0 +1,15 @@
+{"type":"mode","mode":"normal","sessionId":"s1"}
+{"type":"file-history-snapshot","messageId":"m1"}
+{"type":"user","promptId":"p-001","message":"first prompt","userType":"external"}
+{"type":"message","role":"assistant","content":"first reply"}
+{"type":"user","promptId":"p-001","toolUseResult":"tool result for first turn"}
+{"type":"user","promptId":"p-002","message":"second prompt","userType":"external"}
+{"type":"message","role":"assistant","content":"second reply"}
+{"type":"user","promptId":"p-002","toolUseResult":"another tool result"}
+{"type":"user","promptId":"p-002","toolUseResult":"yet another in same turn"}
+{"type":"user","promptId":"p-003","message":"third prompt","userType":"external"}
+{"type":"user","promptId":"p-004","message":"fourth prompt","userType":"external"}
+{"type":"user","promptId":"p-005","message":"fifth prompt","userType":"external"}
+{"type":"user","promptId":"p-006","message":"sixth prompt","userType":"external"}
+{"type":"user","promptId":"p-007","message":"seventh prompt","userType":"external"}
+{"type":"system","content":"system message should not count"}

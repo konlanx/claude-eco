@@ -8,5 +8,6 @@
     "total_input_tokens": 250000,
     "total_output_tokens": 12000,
     "context_window_size": 1000000
-  }
+  },
+  "columns": 200
 }
