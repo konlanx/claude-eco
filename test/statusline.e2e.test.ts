@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { mkdtempSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import assert from "node:assert/strict";
 
 const ANSI_ESCAPE_PATTERN = /\x1b\[[0-9;]*m/g;
@@ -22,10 +23,14 @@ const loadFixture = (fixtureName: string): string =>
 
 const stripAnsi = (text: string): string => text.replace(ANSI_ESCAPE_PATTERN, "");
 
+const newIsolatedHome = (): string =>
+  mkdtempSync(join(tmpdir(), "claude-eco-e2e-home-"));
+
 const invokeCli = (payloadJson: string): CliInvocationResult => {
   const spawnResult = spawnSync("node", [cliExecutablePath], {
     input: payloadJson,
     encoding: "utf8",
+    env: { ...process.env, HOME: newIsolatedHome() },
   });
   return {
     stdout: spawnResult.stdout,
@@ -59,12 +64,19 @@ test("handles a zero-token freshly-started session without crashing", () => {
   assert.match(stripped, /💨 0\.00g CO₂/);
 });
 
-test("scales metrics correctly for a heavy opus session", () => {
-  const result = invokeCli(loadFixture("opus"));
+test("computes cumulative metrics from the transcript, not the payload snapshot", () => {
+  const payload = {
+    ...JSON.parse(loadFixture("opus")),
+    transcript_path: resolve("test/fixtures/transcripts/usage-three-responses.jsonl"),
+  };
+  const result = invokeCli(JSON.stringify(payload));
   assert.strictEqual(result.exitStatus, 0);
   const stripped = stripAnsi(result.stdout);
   assert.match(stripped, /Opus 4\.7/);
-  assert.match(stripped, /⚡ 174\.00Wh/);
+  assert.match(stripped, /⚡ 3\.46Wh/);
+  assert.match(stripped, /💧 22\.28ml/);
+  assert.match(stripped, /💨 1\.54g CO₂/);
+  assert.match(stripped, /2 msgs/);
 });
 
 test("exits non-zero and reports an error when stdin is not valid json", () => {

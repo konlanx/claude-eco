@@ -1,7 +1,8 @@
 import { text } from "node:stream/consumers";
 import { calculateEnvironmentalMetrics } from "./calculator";
 import { renderStatuslineFor } from "./display";
-import { countUserTurns } from "./transcript";
+import { countUserTurns, sumSessionUsage, type CumulativeUsage } from "./transcript";
+import { writeSessionState } from "./state";
 
 type StatuslineModel = {
   readonly id: string;
@@ -31,20 +32,40 @@ const readPayloadFromStdin = async (): Promise<StatuslinePayload> => {
   return parsePayload(rawPayload);
 };
 
-const metricsForPayload = (payload: StatuslinePayload) =>
-  calculateEnvironmentalMetrics({
-    inputTokens: payload.context_window.total_input_tokens,
-    outputTokens: payload.context_window.total_output_tokens,
-    modelId: payload.model.id,
+const persistCumulativeUsage = (
+  sessionId: string,
+  cumulativeUsage: CumulativeUsage,
+): void =>
+  writeSessionState(sessionId, {
+    cumulativeFreshInputTokens: cumulativeUsage.freshInputTokens,
+    cumulativeCacheWriteTokens: cumulativeUsage.cacheWriteTokens,
+    cumulativeCacheReadTokens: cumulativeUsage.cacheReadTokens,
+    cumulativeOutputTokens: cumulativeUsage.outputTokens,
+    lastUpdatedAt: new Date().toISOString(),
   });
 
-const buildStatuslineOutput = (payload: StatuslinePayload): string =>
+const renderForPayload = (
+  payload: StatuslinePayload,
+  cumulativeUsage: CumulativeUsage,
+): string =>
   renderStatuslineFor({
-    metrics: metricsForPayload(payload),
+    metrics: calculateEnvironmentalMetrics({
+      freshInputTokens: cumulativeUsage.freshInputTokens,
+      cacheWriteTokens: cumulativeUsage.cacheWriteTokens,
+      cacheReadTokens: cumulativeUsage.cacheReadTokens,
+      outputTokens: cumulativeUsage.outputTokens,
+      modelId: payload.model.id,
+    }),
     modelDisplayName: payload.model.display_name,
     messageCount: countUserTurns(payload.transcript_path),
     availableColumns: payload.columns ?? DEFAULT_AVAILABLE_COLUMNS,
   });
+
+const buildStatuslineOutput = (payload: StatuslinePayload): string => {
+  const cumulativeUsage = sumSessionUsage(payload.transcript_path);
+  persistCumulativeUsage(payload.session_id, cumulativeUsage);
+  return renderForPayload(payload, cumulativeUsage);
+};
 
 export const runStatusline = async (): Promise<void> => {
   const payload = await readPayloadFromStdin();
