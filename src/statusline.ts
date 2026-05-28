@@ -15,6 +15,10 @@ import {
   determineDisplayMode,
   type DisplayMode,
 } from "./display-mode";
+import {
+  formatTrailingEquivalent,
+  selectMetricForTick,
+} from "./equivalent-cycle";
 
 type StatuslineModel = {
   readonly id: string;
@@ -89,31 +93,40 @@ const sumAllTimeMetrics = (
 ): EnvironmentalMetrics =>
   sessions.map(metricsForSession).reduce(addMetrics, ZERO_METRICS);
 
+const trailingEquivalentNow = (metrics: EnvironmentalMetrics): string =>
+  formatTrailingEquivalent(selectMetricForTick(Date.now()), metrics);
+
 const currentSessionDisplayInput = (
   payload: StatuslinePayload,
   cumulativeUsage: CumulativeUsage,
-): DisplayInput => ({
-  metrics: calculateEnvironmentalMetrics({
+): DisplayInput => {
+  const metrics = calculateEnvironmentalMetrics({
     freshInputTokens: cumulativeUsage.freshInputTokens,
     cacheWriteTokens: cumulativeUsage.cacheWriteTokens,
     cacheReadTokens: cumulativeUsage.cacheReadTokens,
     outputTokens: cumulativeUsage.outputTokens,
     modelId: payload.model.id,
-  }),
-  leftLabel: CURRENT_SESSION_LEFT_LABEL,
-  rightSegments: [
-    `${countUserTurns(payload.transcript_path)} msgs`,
-    payload.model.display_name,
-  ],
-  availableColumns: payload.columns ?? DEFAULT_AVAILABLE_COLUMNS,
-});
+  });
+  return {
+    metrics,
+    leftLabel: CURRENT_SESSION_LEFT_LABEL,
+    rightSegments: [
+      `${countUserTurns(payload.transcript_path)} msgs`,
+      payload.model.display_name,
+    ],
+    trailingSegment: trailingEquivalentNow(metrics),
+    availableColumns: payload.columns ?? DEFAULT_AVAILABLE_COLUMNS,
+  };
+};
 
 const allTimeDisplayInput = (payload: StatuslinePayload): DisplayInput => {
   const allSessions = readAllSessions();
+  const metrics = sumAllTimeMetrics(allSessions);
   return {
-    metrics: sumAllTimeMetrics(allSessions),
+    metrics,
     leftLabel: ALL_TIME_LEFT_LABEL,
     rightSegments: [`${allSessions.length} sessions`],
+    trailingSegment: trailingEquivalentNow(metrics),
     availableColumns: payload.columns ?? DEFAULT_AVAILABLE_COLUMNS,
   };
 };

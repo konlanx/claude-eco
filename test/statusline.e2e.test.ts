@@ -44,7 +44,7 @@ test("renders all three environmental metrics with units for a real sonnet paylo
   assert.strictEqual(result.exitStatus, 0);
   assert.strictEqual(result.stderr, "");
   const stripped = stripAnsi(result.stdout);
-  assert.match(stripped, /^Session  ⚡/);
+  assert.match(stripped, /^Session {2}⚡/);
   assert.match(stripped, /⚡ \d+\.\d{2} (Wh|kWh)/);
   assert.match(stripped, /💧 \d+\.\d{2} (ml|L)/);
   assert.match(stripped, /💨 \d+\.\d{2} (g|kg|t) CO₂/);

@@ -11,10 +11,6 @@ const ANSI_ESCAPE_PATTERN = /\x1b\[[0-9;]*m/g;
 const ENERGY_THRESHOLD_LOW_WATT_HOURS = 0.5;
 const ENERGY_THRESHOLD_HIGH_WATT_HOURS = 2.0;
 
-const WATT_HOURS_PER_TV_SECOND = 0.05;
-const MILLILITERS_PER_WATER_DROP = 0.05;
-const GRAMS_CO2_PER_METER_DRIVEN = 0.15;
-
 const SEGMENT_GAP = "  ";
 const SEPARATOR_RAW = "  ·  ";
 
@@ -22,10 +18,18 @@ export type DisplayInput = {
   readonly metrics: EnvironmentalMetrics;
   readonly leftLabel?: string;
   readonly rightSegments: ReadonlyArray<string>;
+  readonly trailingSegment?: string;
   readonly availableColumns: number;
 };
 
-type LayoutMode = "full" | "compact" | "minimal";
+type LayoutMode = "full" | "without-model" | "trailing-only" | "minimal";
+
+const LAYOUT_CASCADE: ReadonlyArray<LayoutMode> = [
+  "full",
+  "without-model",
+  "trailing-only",
+  "minimal",
+];
 
 const visibleWidthOf = (text: string): number =>
   text.replace(ANSI_ESCAPE_PATTERN, "").length;
@@ -67,43 +71,22 @@ const scaleCo2ForDisplay = (grams: number): ScaledValue => {
   return { display: formatTwoDecimals(grams), unit: "g" };
 };
 
-const roundedAtLeastOne = (value: number): number =>
-  Math.max(1, Math.round(value));
-
-const tvSecondsEquivalent = (wattHours: number): string =>
-  `${roundedAtLeastOne(wattHours / WATT_HOURS_PER_TV_SECOND)}s of TV`;
-
-const waterDropsEquivalent = (milliliters: number): string =>
-  `${roundedAtLeastOne(milliliters / MILLILITERS_PER_WATER_DROP)} drops`;
-
-const drivingMetersEquivalent = (gramsCo2: number): string =>
-  `${roundedAtLeastOne(gramsCo2 / GRAMS_CO2_PER_METER_DRIVEN)}m of driving`;
-
-const withEquivalent = (base: string, equivalent: string): string =>
-  `${base} ${colorize(ANSI_DIM, `(${equivalent})`)}`;
-
-const renderEnergySegment = (wattHours: number, layout: LayoutMode): string => {
+const renderEnergySegment = (wattHours: number): string => {
   const scaled = scaleEnergyForDisplay(wattHours);
-  const base = colorize(
+  return colorize(
     colorForEnergy(wattHours),
     `⚡ ${scaled.display} ${scaled.unit}`,
   );
-  if (layout !== "full") return base;
-  return withEquivalent(base, tvSecondsEquivalent(wattHours));
 };
 
-const renderWaterSegment = (milliliters: number, layout: LayoutMode): string => {
+const renderWaterSegment = (milliliters: number): string => {
   const scaled = scaleWaterForDisplay(milliliters);
-  const base = `💧 ${scaled.display} ${scaled.unit}`;
-  if (layout !== "full") return base;
-  return withEquivalent(base, waterDropsEquivalent(milliliters));
+  return `💧 ${scaled.display} ${scaled.unit}`;
 };
 
-const renderCo2Segment = (grams: number, layout: LayoutMode): string => {
+const renderCo2Segment = (grams: number): string => {
   const scaled = scaleCo2ForDisplay(grams);
-  const base = `💨 ${scaled.display} ${scaled.unit} CO₂`;
-  if (layout !== "full") return base;
-  return withEquivalent(base, drivingMetersEquivalent(grams));
+  return `💨 ${scaled.display} ${scaled.unit} CO₂`;
 };
 
 const renderLeftLabel = (leftLabel: string | undefined): string => {
@@ -111,10 +94,27 @@ const renderLeftLabel = (leftLabel: string | undefined): string => {
   return `${colorize(ANSI_BOLD, leftLabel)}${SEGMENT_GAP}`;
 };
 
-const renderMetricsRow = (input: DisplayInput, layout: LayoutMode): string => {
-  const energy = renderEnergySegment(input.metrics.energy.wattHours, layout);
-  const water = renderWaterSegment(input.metrics.water.milliliters, layout);
-  const co2 = renderCo2Segment(input.metrics.co2.grams, layout);
+const rightSegmentsForLayout = (
+  layout: LayoutMode,
+  segments: ReadonlyArray<string>,
+): ReadonlyArray<string> => {
+  if (layout === "full") return segments;
+  if (layout === "without-model") return segments.slice(0, -1);
+  return [];
+};
+
+const trailingForLayout = (
+  layout: LayoutMode,
+  trailingSegment: string | undefined,
+): string | undefined => {
+  if (layout === "minimal") return undefined;
+  return trailingSegment;
+};
+
+const renderMetricsRow = (input: DisplayInput): string => {
+  const energy = renderEnergySegment(input.metrics.energy.wattHours);
+  const water = renderWaterSegment(input.metrics.water.milliliters);
+  const co2 = renderCo2Segment(input.metrics.co2.grams);
   return `${renderLeftLabel(input.leftLabel)}${[energy, water, co2].join(SEGMENT_GAP)}`;
 };
 
@@ -125,19 +125,30 @@ const renderRightSegments = (segments: ReadonlyArray<string>): string => {
   return `${separator}${dimmedSegments.join(separator)}`;
 };
 
+const composeRightSegments = (
+  layout: LayoutMode,
+  input: DisplayInput,
+): ReadonlyArray<string> => {
+  const baseSegments = rightSegmentsForLayout(layout, input.rightSegments);
+  const trailing = trailingForLayout(layout, input.trailingSegment);
+  if (trailing === undefined) return baseSegments;
+  return [...baseSegments, trailing];
+};
+
 const renderWithLayout = (input: DisplayInput, layout: LayoutMode): string => {
-  const metricsRow = renderMetricsRow(input, layout);
-  if (layout === "minimal") return metricsRow;
-  return `${metricsRow}${renderRightSegments(input.rightSegments)}`;
+  const metricsRow = renderMetricsRow(input);
+  return `${metricsRow}${renderRightSegments(composeRightSegments(layout, input))}`;
 };
 
 const fitsWithinColumns = (rendered: string, columns: number): boolean =>
   visibleWidthOf(rendered) <= columns;
 
-export const renderStatuslineFor = (input: DisplayInput): string => {
-  const full = renderWithLayout(input, "full");
-  if (fitsWithinColumns(full, input.availableColumns)) return full;
-  const compact = renderWithLayout(input, "compact");
-  if (fitsWithinColumns(compact, input.availableColumns)) return compact;
-  return renderWithLayout(input, "minimal");
+const firstFittingLayout = (input: DisplayInput): LayoutMode => {
+  const fitting = LAYOUT_CASCADE.find((layout) =>
+    fitsWithinColumns(renderWithLayout(input, layout), input.availableColumns),
+  );
+  return fitting ?? "minimal";
 };
+
+export const renderStatuslineFor = (input: DisplayInput): string =>
+  renderWithLayout(input, firstFittingLayout(input));

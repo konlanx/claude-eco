@@ -17,85 +17,24 @@ const buildInput = (overrides: Partial<DisplayInput> = {}): DisplayInput => ({
     co2: { grams: 0.18 },
   },
   rightSegments: ["12 msgs", "Sonnet 4.6"],
+  trailingSegment: "⚡ 3 min of LED bulb",
   availableColumns: 200,
   ...overrides,
 });
 
-test("full layout includes raw metrics, equivalents, and all right segments", () => {
+test("full layout includes raw metrics, all right segments, and trailing equivalent", () => {
   const rendered = stripAnsi(renderStatuslineFor(buildInput()));
   assert.match(rendered, /⚡ 0\.42 Wh/);
   assert.match(rendered, /💧 0\.76 ml/);
   assert.match(rendered, /💨 0\.18 g CO₂/);
-  assert.match(rendered, /\(\d+s of TV\)/);
-  assert.match(rendered, /\(\d+ drops\)/);
-  assert.match(rendered, /\(\d+m of driving\)/);
   assert.match(rendered, /12 msgs/);
   assert.match(rendered, /Sonnet 4\.6/);
+  assert.match(rendered, /⚡ 3 min of LED bulb$/);
 });
 
-test("energy scales Wh → kWh at the 1000 Wh threshold", () => {
-  const stayedWh = stripAnsi(
-    renderStatuslineFor(
-      buildInput({
-        metrics: { energy: { wattHours: 999 }, water: { milliliters: 0 }, co2: { grams: 0 } },
-      }),
-    ),
-  );
-  assert.match(stayedWh, /⚡ 999\.00 Wh/);
-  const becameKWh = stripAnsi(
-    renderStatuslineFor(
-      buildInput({
-        metrics: { energy: { wattHours: 1500 }, water: { milliliters: 0 }, co2: { grams: 0 } },
-      }),
-    ),
-  );
-  assert.match(becameKWh, /⚡ 1\.50 kWh/);
-});
-
-test("water scales ml → L at the 1000 ml threshold", () => {
-  const stayedMl = stripAnsi(
-    renderStatuslineFor(
-      buildInput({
-        metrics: { energy: { wattHours: 0 }, water: { milliliters: 999 }, co2: { grams: 0 } },
-      }),
-    ),
-  );
-  assert.match(stayedMl, /💧 999\.00 ml/);
-  const becameLiters = stripAnsi(
-    renderStatuslineFor(
-      buildInput({
-        metrics: { energy: { wattHours: 0 }, water: { milliliters: 2500 }, co2: { grams: 0 } },
-      }),
-    ),
-  );
-  assert.match(becameLiters, /💧 2\.50 L/);
-});
-
-test("co2 scales g → kg at 1000, kg → t at 1,000,000", () => {
-  const stayedGrams = stripAnsi(
-    renderStatuslineFor(
-      buildInput({
-        metrics: { energy: { wattHours: 0 }, water: { milliliters: 0 }, co2: { grams: 999 } },
-      }),
-    ),
-  );
-  assert.match(stayedGrams, /💨 999\.00 g CO₂/);
-  const becameKg = stripAnsi(
-    renderStatuslineFor(
-      buildInput({
-        metrics: { energy: { wattHours: 0 }, water: { milliliters: 0 }, co2: { grams: 3500 } },
-      }),
-    ),
-  );
-  assert.match(becameKg, /💨 3\.50 kg CO₂/);
-  const becameTonnes = stripAnsi(
-    renderStatuslineFor(
-      buildInput({
-        metrics: { energy: { wattHours: 0 }, water: { milliliters: 0 }, co2: { grams: 1_500_000 } },
-      }),
-    ),
-  );
-  assert.match(becameTonnes, /💨 1\.50 t CO₂/);
+test("trailing equivalent renders after right segments, separated by ·", () => {
+  const rendered = stripAnsi(renderStatuslineFor(buildInput()));
+  assert.match(rendered, /Sonnet 4\.6\s+·\s+⚡ 3 min of LED bulb/);
 });
 
 test("left label is prepended in bold when provided (e.g. Session / Total)", () => {
@@ -136,19 +75,78 @@ test("high energy (>2 Wh) is rendered in red", () => {
   assert.ok(rendered.includes(ANSI_RED), "expected red ANSI code");
 });
 
-test("compact layout drops equivalents when full doesn't fit", () => {
-  const rendered = stripAnsi(
-    renderStatuslineFor(buildInput({ availableColumns: 90 })),
+test("energy scales Wh → kWh at the 1000 Wh threshold", () => {
+  const stayedWh = stripAnsi(
+    renderStatuslineFor(
+      buildInput({
+        metrics: { energy: { wattHours: 999 }, water: { milliliters: 0 }, co2: { grams: 0 } },
+      }),
+    ),
   );
-  assert.doesNotMatch(rendered, /\(\d+s of TV\)/);
-  assert.match(rendered, /⚡ 0\.42 Wh/);
-  assert.match(rendered, /12 msgs/);
+  assert.match(stayedWh, /⚡ 999\.00 Wh/);
+  const becameKWh = stripAnsi(
+    renderStatuslineFor(
+      buildInput({
+        metrics: { energy: { wattHours: 1500 }, water: { milliliters: 0 }, co2: { grams: 0 } },
+      }),
+    ),
+  );
+  assert.match(becameKWh, /⚡ 1\.50 kWh/);
 });
 
-test("minimal layout drops right segments when compact still overflows", () => {
-  const rendered = stripAnsi(
-    renderStatuslineFor(buildInput({ availableColumns: 30 })),
+test("water scales ml → L at the 1000 ml threshold", () => {
+  const becameLiters = stripAnsi(
+    renderStatuslineFor(
+      buildInput({
+        metrics: { energy: { wattHours: 0 }, water: { milliliters: 2500 }, co2: { grams: 0 } },
+      }),
+    ),
   );
+  assert.match(becameLiters, /💧 2\.50 L/);
+});
+
+test("co2 scales g → kg at 1000, kg → t at 1,000,000", () => {
+  const becameKg = stripAnsi(
+    renderStatuslineFor(
+      buildInput({
+        metrics: { energy: { wattHours: 0 }, water: { milliliters: 0 }, co2: { grams: 3500 } },
+      }),
+    ),
+  );
+  assert.match(becameKg, /💨 3\.50 kg CO₂/);
+  const becameTonnes = stripAnsi(
+    renderStatuslineFor(
+      buildInput({
+        metrics: { energy: { wattHours: 0 }, water: { milliliters: 0 }, co2: { grams: 1_500_000 } },
+      }),
+    ),
+  );
+  assert.match(becameTonnes, /💨 1\.50 t CO₂/);
+});
+
+test("when full doesn't fit, drops the model name first — msgs and trailing stay", () => {
+  const rendered = stripAnsi(
+    renderStatuslineFor(buildInput({ availableColumns: 80 })),
+  );
+  assert.match(rendered, /12 msgs/);
+  assert.match(rendered, /⚡ 3 min of LED bulb/);
+  assert.doesNotMatch(rendered, /Sonnet/);
+});
+
+test("when narrower, drops all right segments before dropping the trailing equivalent", () => {
+  const rendered = stripAnsi(
+    renderStatuslineFor(buildInput({ availableColumns: 70 })),
+  );
+  assert.match(rendered, /⚡ 3 min of LED bulb/);
+  assert.doesNotMatch(rendered, /msgs/);
+  assert.doesNotMatch(rendered, /Sonnet/);
+});
+
+test("minimal layout drops everything but metrics for very narrow terminals", () => {
+  const rendered = stripAnsi(
+    renderStatuslineFor(buildInput({ availableColumns: 40 })),
+  );
+  assert.doesNotMatch(rendered, /min of LED bulb/);
   assert.doesNotMatch(rendered, /msgs/);
   assert.doesNotMatch(rendered, /Sonnet/);
   assert.match(rendered, /⚡ 0\.42 Wh/);
@@ -156,28 +154,11 @@ test("minimal layout drops right segments when compact still overflows", () => {
   assert.match(rendered, /💨 0\.18 g CO₂/);
 });
 
-test("empty right segments produce metrics-only output without trailing separator", () => {
+test("a DisplayInput with no trailing segment renders cleanly without a dangling separator", () => {
   const rendered = stripAnsi(
-    renderStatuslineFor(buildInput({ rightSegments: [] })),
+    renderStatuslineFor(buildInput({ trailingSegment: undefined, rightSegments: [] })),
   );
   assert.doesNotMatch(rendered, /·/);
-});
-
-test("equivalents never round below 1 — small metrics still report a number", () => {
-  const rendered = stripAnsi(
-    renderStatuslineFor(
-      buildInput({
-        metrics: {
-          energy: { wattHours: 0.001 },
-          water: { milliliters: 0.001 },
-          co2: { grams: 0.001 },
-        },
-      }),
-    ),
-  );
-  assert.match(rendered, /\(1s of TV\)/);
-  assert.match(rendered, /\(1 drops\)/);
-  assert.match(rendered, /\(1m of driving\)/);
 });
 
 test("rendered line resets ANSI styling — no dangling escape state", () => {
