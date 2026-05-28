@@ -5,11 +5,15 @@ type StatuslineModel = {
   readonly display_name: string;
 };
 
+type StatuslineContextWindow = {
+  readonly total_input_tokens: number;
+  readonly total_output_tokens: number;
+};
+
 type StatuslinePayload = {
   readonly session_id: string;
   readonly model: StatuslineModel;
-  readonly total_input_tokens: number;
-  readonly total_output_tokens: number;
+  readonly context_window: StatuslineContextWindow;
 };
 
 const parsePayload = (rawPayload: string): StatuslinePayload =>
@@ -21,8 +25,8 @@ const readPayloadFromStdin = async (): Promise<StatuslinePayload> => {
 };
 
 const formatStatuslineLine = (payload: StatuslinePayload): string => {
-  const inputTokens = payload.total_input_tokens;
-  const outputTokens = payload.total_output_tokens;
+  const inputTokens = payload.context_window.total_input_tokens;
+  const outputTokens = payload.context_window.total_output_tokens;
   const modelIdentifier = payload.model.id;
   return `↑ ${inputTokens} ↓ ${outputTokens} · ${modelIdentifier}`;
 };

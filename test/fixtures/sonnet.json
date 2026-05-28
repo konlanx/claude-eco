@@ -1,0 +1,12 @@
+{
+  "session_id": "test-session-sonnet",
+  "model": {
+    "id": "claude-sonnet-4-6",
+    "display_name": "Sonnet 4.6"
+  },
+  "context_window": {
+    "total_input_tokens": 12345,
+    "total_output_tokens": 678,
+    "context_window_size": 200000
+  }
+}

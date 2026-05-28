@@ -1,0 +1,12 @@
+{
+  "session_id": "test-session-opus",
+  "model": {
+    "id": "claude-opus-4-7",
+    "display_name": "Opus 4.7"
+  },
+  "context_window": {
+    "total_input_tokens": 250000,
+    "total_output_tokens": 12000,
+    "context_window_size": 1000000
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "session_id": "test-session-empty",
+  "model": {
+    "id": "claude-haiku-4-5",
+    "display_name": "Haiku 4.5"
+  },
+  "context_window": {
+    "total_input_tokens": 0,
+    "total_output_tokens": 0,
+    "context_window_size": 200000
+  }
+}
